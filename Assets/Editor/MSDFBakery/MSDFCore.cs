@@ -1,6 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework.Internal.Commands;
 using UnityEngine;
 
 public static class MSDFCore
@@ -68,10 +66,6 @@ public static class MSDFCore
             alpha,
             threshold
         );
-#if UNITY_EDITOR
-        MSDFColoredDrawer.SetSegments(coloredSegments);
-#endif
-
         
         // Step 7 생성된 픽셀 컬러에 거리 채널을 담아 픽셀 다시 그리기
         return EncodeMSDFTexture(
@@ -93,12 +87,12 @@ public static class MSDFCore
     /// <returns></returns>
     public static float[] GetAlphaArray(Texture2D texture)
     {
-        //텍스처의 모든 픽셀을 바이트(0~255) 기반 구조체로 읽기
-        Color32[] px = texture.GetPixels32(); //GetPixels32() faster than GetPixels()
+        //텍스처의 모든 픽셀을 바이트(0~255) 기반 구조체로 읽습니다.
+        Color32[] px = texture.GetPixels32(); //GetPixels32()은 4byte Color32[]을 반환해 16byte Color[] GetPixels()보다 빠릅니다.
         var a = new float[px.Length];
         for (int i = 0; i < px.Length; i++)
         {
-            a[i] = px[i].a / 255f;
+            a[i] = px[i].a / 255f; //알파 값을 0-1로 정규화 해줍니다. 
         }
         return a;
     }
@@ -120,7 +114,6 @@ public static class MSDFCore
         new[]{1,3},  new[]{0,1},  new[]{0,3},  null
     };
    
-    // 선분
     public struct Segment       // 선분 정보를 담을 구조체를 선언해줍니다.
     {
         public Vector2 a, b;
@@ -228,7 +221,6 @@ public static class MSDFCore
             }
         }
         
-        Debug.Log($"seg Count : {segs.Count}");
         return segs;
     }
 
@@ -331,7 +323,6 @@ public static class MSDFCore
                 // 현재 정점에서 다음 정점으로 이을 수 없다면 닫힌 형태의 이미지를 구성할 수 없습니다.
                 if (!pointToSegments.TryGetValue(k, out var candidates)) break; 
                 
-                
                 // 다음 선분 인덱스를 저장할 변수입니다.
                 int nextIndex = -1;
                 // 선분 방향을 뒤집을지 말지를 확인할 변수입니다.
@@ -419,12 +410,12 @@ public static class MSDFCore
     // 선분에 칠할 RGB 값입니다.
     public enum EdgeColor {R, G, B}
 
-    // 그냥 선분에서 색상, aabb, normal을 추가한 새로운 데이터 구조입니다.
+    // 그냥 선분에서 색상, aabb 추가한 새로운 데이터 구조입니다.
     public struct ColoredSegment
     {
         public Segment seg;
         public EdgeColor color;
-        public Rect aabb;      // 바운딩 박스를 설정해 줍니다. 바운딩 박스는 점-선분 거리 계산 전 
+        public Rect aabb;      // 바운딩 박스를 설정해 줍니다. 바운딩 박스는 점-선분 거리 계산 전 빠른 프루닝을 위해 사용됩니다.
     }
     
     private static List<ColoredSegment> BuildColoredSegments(List<List<Vector2>> contours)
