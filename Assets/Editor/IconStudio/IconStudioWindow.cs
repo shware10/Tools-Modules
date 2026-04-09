@@ -17,26 +17,26 @@ public class IconStudioWindow : EditorWindow
         SceneView.duringSceneGui += OnSceneGUI;
     }
 
-		private void OnGUI()
-		{
-		    EditorGUILayout.Space(20);
-		    
-		    EditorGUI.BeginChangeCheck();
-		
-		    width = EditorGUILayout.IntField("Width", Mathf.Max(1, width));       // 넓이 input
-		    height = EditorGUILayout.IntField("Height", Mathf.Max(1, height));    // 높이 input
-		    iconName = EditorGUILayout.TextField("Icon Name",iconName);           // 저장할 아이콘 이름 input
-		    showFrame = EditorGUILayout.Toggle("Show Capture Frame", showFrame);  // 가이드라인을 보여줄 지 toggle
-		    
-		    if(GUILayout.Button("Capture"))                                // 캡처 버튼을 누르면                      
-		    {
-		        string assetPath = GeneratePath();                         // Asset 폴더 기준 경로
-		        string fullPath = System.IO.Path.GetFullPath(assetPath);   // SavePng(Texture2D tex2D, string fullPath) 함수에 전달할 디스크 경로(fullPath)를 생성
-		
-		        CaptureIcon(width, height, fullPath);                      // Icon을 캡쳐해 디스크 경로에 저장합니다.
-		        ApplyTextureImportSettings(assetPath);                     // AssetDataBase에 저장된 png 파일에 접근해 텍스쳐 임포트 셋팅을 변경합니다.
-		    }
-		}
+	private void OnGUI()
+	{
+	    EditorGUILayout.Space(20);
+	    
+	    EditorGUI.BeginChangeCheck();
+	
+	    width = EditorGUILayout.IntField("Width", Mathf.Max(1, width));       // 넓이 input
+	    height = EditorGUILayout.IntField("Height", Mathf.Max(1, height));    // 높이 input
+	    iconName = EditorGUILayout.TextField("Icon Name",iconName);       // 저장할 아이콘 이름 input
+	    showFrame = EditorGUILayout.Toggle("Show Capture Frame", showFrame);  // 가이드라인을 보여줄 지 toggle
+	    
+	    if(GUILayout.Button("Capture"))                            // 캡처 버튼을 누르면                      
+	    {
+	        string assetPath = GeneratePath();                         // Asset 폴더 기준 경로
+	        string fullPath = System.IO.Path.GetFullPath(assetPath);   // SavePng(Texture2D tex2D, string fullPath) 함수에 전달할 디스크 경로(fullPath)를 생성
+	
+	        CaptureIcon(width, height, fullPath);                      // Icon을 캡쳐해 디스크 경로에 저장합니다.
+	        ApplyTextureImportSettings(assetPath);                     // AssetDataBase에 저장된 png 파일에 접근해 텍스쳐 임포트 셋팅을 변경합니다.
+	    }
+	}
 		
     private void OnDisable()
     {
@@ -94,14 +94,14 @@ public class IconStudioWindow : EditorWindow
 
     private void CaptureIcon(int width, int height, string fullPath)
     {
-				var camGO = new GameObject("__IconStudio_CaptureCam");             // 오브젝트 생성
+				var camGO = new GameObject("__IconStudio_CaptureCam");        // 오브젝트 생성
 				camGO.hideFlags = HideFlags.HideAndDontSave;                       // 씬에 저장하지도 하이어라키에도 보이지 않게 
 				
 				var captureCam = camGO.AddComponent<Camera>();                     // 카메라 컴포넌트 추가
 				
 				captureCam.enabled = false;                                        // 렌더 루프에서 제외하고 수동으로 부르기 위해 꺼두기
 				captureCam.clearFlags = CameraClearFlags.SolidColor;               // 화면을 단색으로 초기화
-				captureCam.backgroundColor = new Color(0, 0, 0, 0);                // alpha 값을 0으로 투명하게
+				captureCam.backgroundColor = new Color(0, 0, 0, 0);     // alpha 값을 0으로 투명하게
 
         if(!SetCaptureCamera(captureCam))
         {
@@ -132,10 +132,10 @@ public class IconStudioWindow : EditorWindow
     /// <returns></returns>
 	private bool SetCaptureCamera(Camera captureCam)
 	{
-	
-	    if (!TryGetSceneViewCamera(out var sceneCam)) return false;     // SceneView 카메라를 가져오지 못했으면 false return
+		// SceneView 카메라를 가져오지 못했으면 false return
+	    if (!TryGetSceneViewCamera(out var sceneCam)) return false;     
 			
-			// SceneView Camera의 상태를 임시 카메라에 복사
+		// SceneView Camera의 상태를 임시 카메라에 복사
 	    captureCam.transform.position = sceneCam.transform.position;
 	    captureCam.transform.rotation = sceneCam.transform.rotation;
 	
@@ -158,7 +158,9 @@ public class IconStudioWindow : EditorWindow
     /// <returns></returns>
 	private bool TryGetSceneViewCamera(out Camera sceneCam) 
 	{
-	    var sv = SceneView.lastActiveSceneView;             // 마지막으로 사용자가 클릭/조작한 SceneView를 가져오기
+		// 마지막으로 사용자가 클릭/조작한 SceneView를 가져오기
+	    var sv = SceneView.lastActiveSceneView;
+	        
 	    if(sv == null || sv.camera == null)
 	    {
 	        sceneCam = null; 
@@ -180,7 +182,7 @@ public class IconStudioWindow : EditorWindow
 	    var rt = new RenderTexture(       // RenderTexture를 생성합니다.
 	        width,
 	        height,
-	        24,                           // SceneView Camera가 사용하는 표준 24bit depth을 따라줍니다.
+	        24,                      // SceneView Camera가 사용하는 표준 24bit depth을 따라줍니다.
 	        RenderTextureFormat.ARGB32    // 알파 채널 포함 32bit 컬러 채널
 	        );
 	    rt.Create();       // RenderTexture에 대응되는 GPU 메모리를 할당해 줍니다.
@@ -214,8 +216,9 @@ public class IconStudioWindow : EditorWindow
 	        rt.height,
 	        TextureFormat.ARGB32,
 	        false);
-	
-	    tex.ReadPixels(                                  // 활성 렌더 텍스쳐를 읽어드림
+	        
+	    // 활성 렌더 텍스쳐를 읽어드림
+	    tex.ReadPixels(                                  
 	        new Rect(0, 0, rt.width, rt.height), 0, 0);  // 텍스쳐가 0,0에서 부터 활성 텍스쳐를 읽습니다.
 	
 	    tex.Apply();                      // 렌더 텍스쳐를 2D텍스쳐에 적용합니다.
@@ -288,7 +291,7 @@ public class IconStudioWindow : EditorWindow
 	    
 	    importer.ReadTextureSettings(settings);        // importer에서 settings 디폴트 값을 읽습니다. 
 	
-			// 변경하고자 하는 설정 값들을 변경해 줍니다.
+		// 변경하고자 하는 설정 값들을 변경해 줍니다.
 	    settings.textureType = TextureImporterType.Sprite;
 	    settings.spriteMode = (int)SpriteImportMode.Single;
 	    settings.spritePixelsPerUnit = 100f;

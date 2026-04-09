@@ -2412,8 +2412,8 @@
     "m_ObjectId": "66271ee2f0d146d5ae2257d76512bc31",
     "m_Title": "Median",
     "m_Position": {
-        "x": -2464.0,
-        "y": 173.0
+        "x": -2464.000244140625,
+        "y": 172.99990844726563
     }
 }
 
@@ -3022,7 +3022,7 @@
     "m_Title": "Outline Mask",
     "m_Position": {
         "x": -1212.0,
-        "y": 274.0
+        "y": 273.9999694824219
     }
 }
 
@@ -3097,7 +3097,7 @@
     "m_Title": "Fill Mask",
     "m_Position": {
         "x": -1121.0,
-        "y": -9.0
+        "y": -9.00006103515625
     }
 }
 
@@ -3795,7 +3795,7 @@
     "m_ObjectId": "cecdaab4edd34ec6adeaefb8d8d4f09b",
     "m_Title": "Signed Distance ",
     "m_Position": {
-        "x": -1889.0,
+        "x": -1889.000244140625,
         "y": 249.0
     }
 }
