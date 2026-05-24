@@ -1,7 +1,6 @@
 using UnityEditor;
 using UnityEngine;
 
-
 public class MeshBuilderWindow : EditorWindow
 {
     private GameObject curObj;
@@ -14,7 +13,7 @@ public class MeshBuilderWindow : EditorWindow
     private enum ShapeType
     {
         Cone,
-        Ring,
+        Band,
         Spiral
     }
     
@@ -31,7 +30,7 @@ public class MeshBuilderWindow : EditorWindow
         shapeType = (ShapeType)GUILayout.Toolbar
             (
                 (int)shapeType,
-                new string[] { "Cone", "Ring", "Spiral"}
+                new string[] { "Cone", "Band", "Spiral"}
             );
             
         EditorGUILayout.Space(20);
@@ -44,7 +43,7 @@ public class MeshBuilderWindow : EditorWindow
                 case ShapeType.Cone:
                     GenerateCone();
                     break;
-                case ShapeType.Ring:
+                case ShapeType.Band:
                     GenerateBand();
                     break;
                 case ShapeType.Spiral:
@@ -153,5 +152,4 @@ public class MeshBuilderWindow : EditorWindow
 	    
         return  System.IO.Path.GetDirectoryName(folder); // 현재 폴더의 상위 폴더 위치
     }
-    
 }

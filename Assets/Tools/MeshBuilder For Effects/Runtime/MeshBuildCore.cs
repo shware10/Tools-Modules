@@ -8,9 +8,9 @@ public static class MeshBuildCore
     /// </summary>
     /// <param name="mesh">오브젝트의 메쉬</param>
     /// <param name="apex">콘의 꼭짓점</param>
-    /// <param name="baseCenter">원의 중심</param>
-    /// <param name="radius">원의 지름</param>
-    /// <param name="segments">면을 나누는 삼각형 갯수</param>
+    /// <param name="baseCenter">밑면의 중심</param>
+    /// <param name="radius">밑면의 반지름</param>
+    /// <param name="segments">면을 이루는 삼각형 갯수</param>
     public static void BuildCone
     (
         Mesh mesh,
@@ -41,35 +41,39 @@ public static class MeshBuildCore
         
         // 원 정점 갯수(삼각형 갯수+1) + 꼭짓점
 		int vertexCount = 2 + segments;
-		// 정점을 담을 배열				 
+		// 정점을 담을 배열
 		Vector3[] vertices = new Vector3[vertexCount];
 		// uv 배열
 		Vector2[] uv = new Vector2[vertices.Length];
-		// 정점 세개의 인덱스로 삼각형을 구성할 배열
-		int[] triangles = new int[segments * 3];	
+
 		
 		int apexIndex = 0;
 		int ringIndex = 1;
 		
 		vertices[apexIndex] = apex; // 첫 정점은 꼭짓점
-		
 		uv[apexIndex] = new Vector2(0.5f, 0f); // 꼭짓점을 중앙 바닥으로
 		
 		// 정점 생성
-        for(int i = 0; i <= segments; ++i)
-        {
-            float t = (float)i / segments;
-            float rad = t * Mathf.PI * 2f;
-            
-            Vector3 dir = right * Mathf.Cos(rad) + forward * Mathf.Sin(rad); 
-            
-            Vector3 point = baseCenter + dir * radius;
-			
-            vertices[ringIndex + i] = point;
-            // 정점을 uv에 맵핑
-            uv[ringIndex + i] = new Vector2(t, 1f);
-        }
+		for(int i = 0; i <= segments; ++i)
+		{
+			float t = (float)i / segments; // 정다각형을 그리는 진행률
+			float rad = t * Mathf.PI * 2f; // 현재 진행률을 라디안화
         
+			// baseCenter로 부터 떨어뜨릴 정점의 방향 단위벡터을 구합니다.
+			Vector3 dir = right * Mathf.Cos(rad) + forward * Mathf.Sin(rad);
+        
+			// radius만큼 떨어진 방향에 정점을 위치시킵니다.
+			Vector3 point = baseCenter + (dir * radius);
+				
+			// 정점을 추가해 줍니다.
+			vertices[ringIndex + i] = point;
+        
+			// 정점을 uv에 맵핑합니다.
+			uv[ringIndex + i] = new Vector2(t, 1f);
+		}
+		
+		// 정점 세개의 인덱스로 삼각형을 구성할 배열
+		int[] triangles = new int[segments * 3];	
 		int trIdx = 0;
 		
 		// 옆면을 삼각형으로 생성하기
@@ -146,7 +150,7 @@ public static class MeshBuildCore
 		    uv[idx + 1] = new Vector2(t, 1f);
 	    }
 	    
-	    // 쿼드는 2개의 삼각형 * 삼각형을 이루는 정점 3  
+	    // 쿼드는 2개의 삼각형으로 이루어져 있으니 6개의 정점 인덱스가 필요
 	    int[] triangles = new int[segments * 6];
 	    
 	    int trIdx = 0;
@@ -204,13 +208,7 @@ public static class MeshBuildCore
     {
 		mesh.Clear();
 		
-		int segments = turns * segmentsPerTurn;
-		
-		Vector3[] vertices = new Vector3[(segments + 1) * 2];
-		Vector2[] uv = new Vector2[vertices.Length];
-		int[] triangles = new int[segments * 6];
-		
-		// 전체 높이축 변화량
+		// 전체 높이량
 		Vector3 axisDelta = topCenter - bottomCenter;
 		// 높이축 방향 벡터
 		Vector3 axisDir = axisDelta.normalized;
@@ -221,6 +219,11 @@ public static class MeshBuildCore
 		right.Normalize();
 		// 직교 좌표계 구성
 		Vector3 forward = Vector3.Cross(right, axisDir);
+		
+		int segments = turns * segmentsPerTurn;
+		
+		Vector3[] vertices = new Vector3[(segments + 1) * 2];
+		Vector2[] uv = new Vector2[vertices.Length];
 		
 		// 정점 그리기
 		for(int i = 0; i <= segments; ++i)
@@ -269,6 +272,7 @@ public static class MeshBuildCore
 			uv[idx + 1] = new Vector2(1, percentage);		
 		}
 		
+		int[] triangles = new int[segments * 6];
 		// 삼각형을 이루는 정점 구성
 		int trIdx = 0;
 		for(int i = 0; i < segments; ++i)
