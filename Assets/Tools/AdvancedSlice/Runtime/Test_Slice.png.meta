@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 16ce94a6a446e42488f5f36072534a29
+guid: 68b29086a72e81941971533e23045947
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -39,7 +39,7 @@ TextureImporter:
     mipBias: 0
     wrapU: 1
     wrapV: 1
-    wrapW: 1
+    wrapW: 0
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
@@ -49,7 +49,7 @@ TextureImporter:
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
   spritePixelsToUnits: 100
-  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteBorder: {x: 37, y: 32, z: 36, w: 32}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
@@ -101,7 +101,7 @@ TextureImporter:
     physicsShape: []
     bones: []
     spriteID: 5e97eb03825dee720800000000000000
-    internalID: 0
+    internalID: 1537655665
     vertices: []
     indices: 
     edges: []
@@ -112,6 +112,6 @@ TextureImporter:
     nameFileIdTable: {}
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
-  userData: ADVANCED_SLICE:{"Left":47.0,"LeftInner":235.0,"RightInner":308.0,"Right":473.0,"Bottom":76.80000305175781,"BottomInner":229.0,"TopInner":303.0,"Top":435.20001220703127}
+  userData: ADVANCED_SLICE:{"Left":37.0,"LeftInner":45.0,"RightInner":84.0,"Right":92.0,"Bottom":30.0,"BottomInner":32.0,"TopInner":33.0,"Top":34.0}
   assetBundleName: 
   assetBundleVariant: 
