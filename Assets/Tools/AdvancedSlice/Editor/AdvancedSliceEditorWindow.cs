@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-public class AdvancedSliceImporterWindow : EditorWindow
+public class AdvancedSliceEditorWindow : EditorWindow
 {
     private enum LineType
     {
@@ -75,8 +75,22 @@ public class AdvancedSliceImporterWindow : EditorWindow
     private bool _isPanning;
     
     [MenuItem("Tools/Shware/AdvancedSlice")]
-    public static void Open() => GetWindow<AdvancedSliceImporterWindow>("AdvancedSlice");
+    public static void Open() => GetWindow<AdvancedSliceEditorWindow>("AdvancedSlice");
     
+    public static void Open(Sprite sprite)
+    {
+        var window = GetWindow<AdvancedSliceEditorWindow>("AdvancedSlice");
+        
+        window.SetSprite(sprite);
+    }
+
+    private void SetSprite(Sprite sprite)
+    {
+        _sprite = sprite;
+        OnSpriteChanged();
+        Repaint();
+    }
+
     private void OnGUI()
     {
         DrawToolbar();

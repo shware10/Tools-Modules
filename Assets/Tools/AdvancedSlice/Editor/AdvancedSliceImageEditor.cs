@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEditor.UI;
+using UnityEngine;
 
 [CustomEditor(typeof(AdvancedSliceImage))]
 public class AdvancedSliceImageEditor : ImageEditor
@@ -26,6 +27,16 @@ public class AdvancedSliceImageEditor : ImageEditor
             EditorStyles.boldLabel);
         
         EditorGUILayout.PropertyField(sliceModeProp);
+        
+        AdvancedSliceImage image = (AdvancedSliceImage)target;
+        
+        EditorGUILayout.Space();
+        
+        if(GUILayout.Button("Open Advanced Slice Editor"))
+        {
+            AdvancedSliceEditorWindow.Open(
+                image.overrideSprite ?? image.sprite);
+        }
         
         serializedObject.ApplyModifiedProperties();
     }
