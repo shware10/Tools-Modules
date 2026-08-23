@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -17,6 +18,7 @@ public class AdvancedSliceEditorWindow : EditorWindow
         TopInner,
         Top
     }
+    
     private struct SliceLine
     {
         public LineType Type;
@@ -29,20 +31,38 @@ public class AdvancedSliceEditorWindow : EditorWindow
         }
     }
     
-    private readonly SliceLine[] _lines =
+    private SliceLine[] _lines;
+    
+    private static readonly LineType[] X3Lines =
     {
-        new(LineType.Left, true),
-        new(LineType.LeftInner, true),
-        new(LineType.RightInner, true),
-        new(LineType.Right, true),
-        
-        new(LineType.Bottom, false),
-        new(LineType.BottomInner, false),
-        new(LineType.TopInner, false),
-        new(LineType.Top, false),
+        LineType.Left,
+        LineType.Right
+    };
+
+    private static readonly LineType[] X5Lines =
+    {
+        LineType.Left,
+        LineType.LeftInner,
+        LineType.RightInner,
+        LineType.Right
+    };
+
+    private static readonly LineType[] Y3Lines =
+    {
+        LineType.Bottom,
+        LineType.Top
+    };
+
+    private static readonly LineType[] Y5Lines =
+    {
+        LineType.Bottom,
+        LineType.BottomInner,
+        LineType.TopInner,
+        LineType.Top
     };
     
     private Sprite _sprite;
+    private AdvancedSliceMode _sliceMode;
     private AdvancedSliceData _sliceData;
     private Texture2D _spriteTexture;
     
@@ -63,7 +83,9 @@ public class AdvancedSliceEditorWindow : EditorWindow
     
     private SliceLine hoveredLine;
     private SliceLine draggingLine;
+    private const float _minGap = 1f;
     
+    // 선 정보가 변경된 것을 감지하는 더티플래그
     private bool _isDirty;
     
     private float _zoom = 1f;
@@ -74,20 +96,26 @@ public class AdvancedSliceEditorWindow : EditorWindow
     private Vector2 _panOffset;
     private bool _isPanning;
     
-    [MenuItem("Tools/Shware/AdvancedSlice")]
-    public static void Open() => GetWindow<AdvancedSliceEditorWindow>("AdvancedSlice");
-    
-    public static void Open(Sprite sprite)
+    public static void Open(Sprite sprite, AdvancedSliceMode sliceMode)
     {
         var window = GetWindow<AdvancedSliceEditorWindow>("AdvancedSlice");
         
-        window.SetSprite(sprite);
+        window.SetSprite(sprite, sliceMode);
     }
 
-    private void SetSprite(Sprite sprite)
+    private void SetSprite(Sprite sprite, AdvancedSliceMode sliceMode)
     {
         _sprite = sprite;
-        OnSpriteChanged();
+        
+        _sliceMode = sliceMode;
+        
+        _lines = BuildLines(sliceMode);
+        
+        // sliceData 캐싱
+        _sliceData = AdvancedSliceImporterUtil.LoadOrCreateDefault(_sprite);
+        
+        // sprite texture 캐싱
+        _spriteTexture = AssetPreview.GetAssetPreview(_sprite);
         Repaint();
     }
 
@@ -97,9 +125,7 @@ public class AdvancedSliceEditorWindow : EditorWindow
         
         DrawPreview();
         
-        Handles.BeginGUI();
         foreach(var line in _lines) DrawLine(line);
-        Handles.EndGUI();
         
         HandleZoom();
         
@@ -110,40 +136,6 @@ public class AdvancedSliceEditorWindow : EditorWindow
         DrawPixelInfo();
     }
 
-    private void DrawPixelInfo()
-    {
-        if(_sprite == null) return;
-        
-        SliceLine targetLine = 
-        draggingLine.Type != LineType.None ?
-        draggingLine : hoveredLine;
-        
-        if(targetLine.Type == LineType.None) return;
-        
-        float pixel = GetPixel(targetLine.Type);
-        
-        string text = 
-        targetLine.IsVertical ?
-        $"{targetLine.Type} X : {pixel:0} / {_sprite.rect.width:0}px":
-        $"{targetLine.Type} Y : {pixel:0} / {_sprite.rect.height:0}px";
-        
-        EditorGUI.DrawRect(
-            new Rect(
-                _backgroundRect.x + 5,
-                _backgroundRect.y + 5,
-                230,
-                24),
-            new Color(0,0,0,0.6f));
-
-        GUI.Label(
-            new Rect(
-                _backgroundRect.x + 10,
-                _backgroundRect.y + 7,
-                220,
-                20),
-            text);
-    }
-
     #region Toolbar Method
     
     /// <summary>
@@ -151,19 +143,6 @@ public class AdvancedSliceEditorWindow : EditorWindow
     /// </summary>
     private void DrawToolbar()
     {
-        EditorGUI.BeginChangeCheck();
-        
-        _sprite = (Sprite)EditorGUILayout.ObjectField(
-            "Sprite",
-            _sprite,
-            typeof(Sprite),
-            false);
-        // sprite가 바뀌면 
-        if (EditorGUI.EndChangeCheck())
-        {
-            OnSpriteChanged();
-        }
-        
         EditorGUILayout.BeginHorizontal();
         
         // sprite가 존재하면 save 버튼 활성화
@@ -185,21 +164,38 @@ public class AdvancedSliceEditorWindow : EditorWindow
     }
     
     /// <summary>
-    /// 에디터 상의 sprite를 교체하면 새로운 sliceData와 texture를 가져오는 함수
+    /// 전체 스프라이트 픽셀에서 선이 어느 위치에 있는지 표시하는 함수
     /// </summary>
-    private void OnSpriteChanged()
+    private void DrawPixelInfo() 
     {
-        if(_sprite == null)
-        {
-            _spriteTexture = null;
-            return;
-        }
-        // sliceData 캐싱
-        _sliceData = AdvancedSliceImporterUtil.LoadOrCreateDefault(_sprite);
-        // sprite texture 캐싱
-        _spriteTexture = AssetPreview.GetAssetPreview(_sprite);
+        if(_sprite == null) return;
+        
+        SliceLine targetLine = draggingLine.Type != LineType.None ? draggingLine : hoveredLine;
+        
+        if(targetLine.Type == LineType.None) return;
+        
+        float pixel = GetPixel(targetLine.Type); // 현재 선택된 라인의 픽셀 위치
+        
+        string text = targetLine.IsVertical ?
+                $"{targetLine.Type} X : {pixel:0} / {_sprite.rect.width:0}px":
+                $"{targetLine.Type} Y : {pixel:0} / {_sprite.rect.height:0}px";
+        
+        EditorGUI.DrawRect(
+            new Rect(
+                _backgroundRect.x + 5,
+                _backgroundRect.y + 5,
+                230,
+                24),
+            new Color(0,0,0,0.6f));
+
+        GUI.Label(
+            new Rect(
+                _backgroundRect.x + 10,
+                _backgroundRect.y + 7,
+                220,
+                20),
+            text);
     }
-    
     #endregion
     
     #region Previw Method
@@ -327,8 +323,6 @@ public class AdvancedSliceEditorWindow : EditorWindow
 
         tex.filterMode = FilterMode.Point;
         tex.wrapMode = TextureWrapMode.Repeat;
-        tex.hideFlags = HideFlags.HideAndDontSave;
-
         tex.Apply();
 
         return tex;
@@ -353,7 +347,62 @@ public class AdvancedSliceEditorWindow : EditorWindow
     
     #region Line Method
     
-    // 라인에 대한 마우스 이벤트를 다루는 함수
+    /// <summary>
+    /// SliceMode에 따라 그릴 선을 선별하는 함수
+    /// </summary>
+    /// <param name="sliceMode"></param>
+    /// <returns></returns>
+    private SliceLine[] BuildLines(AdvancedSliceMode sliceMode)
+    {
+        var lines = new List<SliceLine>();
+
+        bool hasX3 = sliceMode == AdvancedSliceMode.ThreeByOne ||
+                     sliceMode == AdvancedSliceMode.ThreeByThree ||
+                     sliceMode == AdvancedSliceMode.ThreeByFive;
+
+        bool hasX5 = sliceMode == AdvancedSliceMode.FiveByOne ||
+                     sliceMode == AdvancedSliceMode.FiveByThree ||
+                     sliceMode == AdvancedSliceMode.FiveByFive;
+
+        bool hasY3 = sliceMode == AdvancedSliceMode.OneByThree ||
+                     sliceMode == AdvancedSliceMode.ThreeByThree ||
+                     sliceMode == AdvancedSliceMode.FiveByThree;
+
+        bool hasY5 = sliceMode == AdvancedSliceMode.OneByFive ||
+                     sliceMode == AdvancedSliceMode.ThreeByFive ||
+                     sliceMode == AdvancedSliceMode.FiveByFive;
+        if(hasX5)
+        {
+            lines.Add(new SliceLine(LineType.Left, true));
+            lines.Add(new SliceLine(LineType.LeftInner, true));
+            lines.Add(new SliceLine(LineType.RightInner, true));
+            lines.Add(new SliceLine(LineType.Right, true));
+        }
+        else if(hasX3)
+        {
+            lines.Add(new SliceLine(LineType.Left, true));
+            lines.Add(new SliceLine(LineType.Right, true));
+        }
+
+        if(hasY5)
+        {
+            lines.Add(new SliceLine(LineType.Bottom, false));
+            lines.Add(new SliceLine(LineType.BottomInner, false));
+            lines.Add(new SliceLine(LineType.TopInner, false));
+            lines.Add(new SliceLine(LineType.Top, false));
+        }
+        else if(hasY3)
+        {
+            lines.Add(new SliceLine(LineType.Bottom, false));
+            lines.Add(new SliceLine(LineType.Top, false));
+        }
+
+        return lines.ToArray();
+    }
+    
+    /// <summary>
+    ///  라인에 대한 마우스 이벤트를 다루는 함수
+    /// </summary>
     private void HandleLine()
     {
         if(_sprite == null) return;
@@ -392,6 +441,54 @@ public class AdvancedSliceEditorWindow : EditorWindow
         }
     }
     
+    /// <summary>
+    /// 조정에 필요한 Line을 그리는 함수
+    /// </summary>
+    private void DrawLine(SliceLine line)
+    {
+        if(_sprite == null) return;
+        
+        float pixel = GetPixel(line.Type);
+        
+        Vector2 start;
+        Vector2 end;
+
+        if(line.IsVertical) // 수직 라인 처리
+        {
+            float normalized = pixel / _sprite.rect.width;
+        
+            float x = Mathf.Lerp(_spriteRect.xMin, _spriteRect.xMax, normalized);
+            
+            start = new Vector2(x, _spriteRect.yMin);
+            end   = new Vector2(x, _spriteRect.yMax);
+        }
+        else // 수평 라인 처리
+        {
+            float normalized = pixel / _sprite.rect.height;
+        
+            // GUI좌표는 위가 0 아래가 증가이기 때문에 yMax -> yMin으로 Lerp
+            float y = Mathf.Lerp(_spriteRect.yMax, _spriteRect.yMin, normalized); 
+            
+            start = new Vector2(_spriteRect.xMin, y);
+            end   = new Vector2(_spriteRect.xMax, y);
+        }
+        
+        Handles.color = GetLineColor(line.Type);
+        Handles.DrawLine(start, end);
+    }
+    
+    // 호버/드래그 시 라인 
+    private Color GetLineColor(LineType line)
+    {
+        if (draggingLine.Type == line)
+            return Color.yellow;
+
+        if (hoveredLine.Type == line)
+            return Color.yellow;
+
+        return Color.green;
+    }
+    
     // mouse의 위치로 선을 옮기는 함수
     private void MoveLine(SliceLine line, Vector2 mousePosition)
     {
@@ -408,9 +505,7 @@ public class AdvancedSliceEditorWindow : EditorWindow
             pixel = RectYToPixelY(mousePosition.y);
         }
         
-        pixel = ClampPixel(line.Type, pixel);
-        
-        Debug.Log(pixel);
+        pixel = ClampPixel(line.Type, pixel); // 다른 선을 넘지 않도록 clamp
         
         SetPixel(line.Type, pixel);
     }
@@ -422,89 +517,40 @@ public class AdvancedSliceEditorWindow : EditorWindow
         {
             float pixel = GetPixel(line.Type);
             
-            bool hit = 
-            line.IsVertical ? 
-            CanGrapVerticalLine(mousePosition, pixel) : CanGrapHorizontalLine(mousePosition, pixel);
-            
+            bool hit = CanGrabLine(mousePosition, pixel, line.IsVertical);  
+ 
             if(hit) return line;
         }
         
         return new SliceLine(LineType.None, false);
     }
     
-    // 수직선으로부터 x축으로 좌우 5픽셀 미만이면 그랩하는 함수
-    private bool CanGrapVerticalLine(Vector2 mousePosition, float pixel)
+    // 수직/수평선으로부터 x축으로 좌우 5픽셀 미만이면 그랩하는 함수
+    private bool CanGrabLine(Vector2 mousePosition, float pixel, bool vertical)
     {
-        float normalized = pixel / _sprite.rect.width;
-        
-        float x = Mathf.Lerp(_spriteRect.xMin, _spriteRect.xMax, normalized);
-        
-        
-        return Mathf.Abs(mousePosition.x - x) < 5f;
-    }
-    
-    // 수평선으로부터 y축으로 좌우 5픽셀 미만이면 그랩하는 함수
-    private bool CanGrapHorizontalLine(Vector2 mousePosition, float pixel)
-    {
-        float normalized = pixel / _sprite.rect.height;
-        
-        float y = Mathf.Lerp(_spriteRect.yMax, _spriteRect.yMin, normalized);
-        
-        
-        return Mathf.Abs(mousePosition.y - y) < 5f;
-    }
-    
-    
-    /// <summary>
-    /// 조정에 필요한 8개의 Line을 그리는 함수
-    /// </summary>
-    private void DrawLine(SliceLine line)
-    {
-        if(_sprite == null) return;
-        
-        float pixel = GetPixel(line.Type);
-
-        if(line.IsVertical) // 수직 라인 처리
+        if (vertical)
         {
             float normalized = pixel / _sprite.rect.width;
-        
-            float x = Mathf.Lerp(_spriteRect.xMin, _spriteRect.xMax, normalized);
-        
-            Handles.color = GetLineColor(line.Type);
-        
-            Handles.DrawLine(
-                new Vector2(x, _spriteRect.yMin), 
-                new Vector2(x, _spriteRect.yMax)
-            );
+
+            float x = Mathf.Lerp(
+                _spriteRect.xMin,
+                _spriteRect.xMax,
+                normalized);
+
+            return Mathf.Abs(mousePosition.x - x) < 5f;
         }
-        else // 수평 라인 처리
+        else
         {
-            float normalized = pixel / _sprite.rect.height;
-        
-            // GUI좌표는 위가 0 아래가 증가이기 때문에 yMax -> yMin으로 Lerp
-            float y = Mathf.Lerp(_spriteRect.yMax, _spriteRect.yMin, normalized);
-        
-            Handles.color = GetLineColor(line.Type);
-        
-            Handles.DrawLine(
-                new Vector2(_spriteRect.xMin, y),
-                new Vector2(_spriteRect.xMax, y)
-            );
+            float normalizedY = pixel / _sprite.rect.height;
+
+            float y = Mathf.Lerp(
+                _spriteRect.yMax,
+                _spriteRect.yMin,
+                normalizedY);
+
+            return Mathf.Abs(mousePosition.y - y) < 5f;
         }
     }
-    
-    // 호버/드래그 시 라인 
-    private Color GetLineColor(LineType line)
-    {
-        if (draggingLine.Type == line)
-            return Color.yellow;
-
-        if (hoveredLine.Type == line)
-            return Color.yellow;
-
-        return Color.green;
-    }
-
 
     // 프리뷰 상의 Rect x좌표 이동을 실제 sprite 기준의 pixel상의 x좌표로 전환하는 함수
     private float RectXToPixelX(float previewX)
@@ -522,66 +568,100 @@ public class AdvancedSliceEditorWindow : EditorWindow
         return Mathf.Round(normalized * _sprite.rect.height);
     }
     
-    // 라인이 다음 라인을 넘거나 겹치지 않도록 하는 함수
     private float ClampPixel(LineType line, float pixel)
     {
-        const float minGap = 1f;
-        
         pixel = Mathf.Round(pixel);
-        
-        switch (line)
+
+        if (IsVerticalLine(line))
         {
-            case LineType.Left:
-                return Mathf.Clamp(
-                    pixel,
-                    0f,
-                    _sliceData.LeftInner - minGap);
+            LineType[] lines = GetXLines();
 
-            case LineType.LeftInner:
-                return Mathf.Clamp(
-                    pixel,
-                    _sliceData.Left + minGap,
-                    _sliceData.RightInner - minGap);
-
-            case LineType.RightInner:
-                return Mathf.Clamp(
-                    pixel,
-                    _sliceData.LeftInner + minGap,
-                    _sliceData.Right - minGap);
-
-            case LineType.Right:
-                return Mathf.Clamp(
-                    pixel,
-                    _sliceData.RightInner + minGap,
-                    _sprite.rect.width);
-
-            case LineType.Bottom:
-                return Mathf.Clamp(
-                    pixel,
-                    0f,
-                    _sliceData.BottomInner - minGap);
-
-            case LineType.BottomInner:
-                return Mathf.Clamp(
-                    pixel,
-                    _sliceData.Bottom + minGap,
-                    _sliceData.TopInner - minGap);
-
-            case LineType.TopInner:
-                return Mathf.Clamp(
-                    pixel,
-                    _sliceData.BottomInner + minGap,
-                    _sliceData.Top - minGap);
-
-            case LineType.Top:
-                return Mathf.Clamp(
-                    pixel,
-                    _sliceData.TopInner + minGap,
-                    _sprite.rect.height);
-
-            default:
-                return pixel;
+            return ClampLine(
+                line,
+                pixel,
+                lines,
+                0f,
+                _sprite.rect.width);
         }
+        else
+        {
+            LineType[] lines = GetYLines();
+
+            return ClampLine(
+                line,
+                pixel,
+                lines,
+                0f,
+                _sprite.rect.height);
+        }
+    }
+    
+    private float ClampLine(LineType line, float pixel, LineType[] lines, float min, float max)
+    { 
+        if (lines == null) return pixel;
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            if (lines[i] != line) continue;
+            
+            float lower = i == 0 ? min : GetPixel(lines[i - 1]) + _minGap; //직전 인덱스의 위치 - 1px 까지
+            
+            float upper = i == lines.Length - 1 ? max : GetPixel(lines[i + 1]) - _minGap; // 다음 인덱스의 위치 + 1px 까지
+
+            return Mathf.Clamp(pixel, lower, upper);
+        }
+
+        return pixel;
+    }
+    
+    private LineType[] GetXLines()
+    {
+        switch (_sliceMode)
+        {
+            case AdvancedSliceMode.OneByThree:
+            case AdvancedSliceMode.OneByFive:
+                return null;
+
+            case AdvancedSliceMode.ThreeByOne:
+            case AdvancedSliceMode.ThreeByThree:
+            case AdvancedSliceMode.ThreeByFive:
+                return X3Lines;
+
+            case AdvancedSliceMode.FiveByOne:
+            case AdvancedSliceMode.FiveByThree:
+            case AdvancedSliceMode.FiveByFive:
+            default:
+                return X5Lines;
+        }
+    }
+
+    private LineType[] GetYLines()
+    {
+        switch (_sliceMode)
+        {
+            case AdvancedSliceMode.ThreeByOne:
+            case AdvancedSliceMode.FiveByOne:
+                return null;
+
+            case AdvancedSliceMode.OneByThree:
+            case AdvancedSliceMode.ThreeByThree:
+            case AdvancedSliceMode.FiveByThree:
+                return Y3Lines;
+
+            case AdvancedSliceMode.OneByFive:
+            case AdvancedSliceMode.ThreeByFive:
+            case AdvancedSliceMode.FiveByFive:
+            default:
+                return Y5Lines;
+        }
+    }
+    
+    private static bool IsVerticalLine(LineType line)
+    {
+        return line == LineType.Left
+               || line == LineType.LeftInner
+               || line == LineType.RightInner
+               || line == LineType.Right;
     }
     
     // 현재 라인 타입에 해당하는 실제 sprite의 sliceData를 가져오는 함수
@@ -658,7 +738,7 @@ public class AdvancedSliceEditorWindow : EditorWindow
     }
     
     #endregion
-    
+    // 스크롤 이벤트를 입력받아 줌 처리
     private void HandleZoom()
     {
         Event eve = Event.current;
@@ -700,7 +780,7 @@ public class AdvancedSliceEditorWindow : EditorWindow
             eve.Use();
         }
         
-        if(eve.keyCode == KeyCode.F)
+        if(eve.type == EventType.KeyDown && eve.keyCode == KeyCode.F)
         {
             _zoom = 1f;
             _panOffset = Vector2.zero;

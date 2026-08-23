@@ -1,11 +1,16 @@
 using UnityEditor;
 using UnityEngine;
 
-
 public static class AdvancedSliceImporterUtil
 {
     private const string Prefix = "ADVANCED_SLICE:";
     
+    /// <summary>
+    /// SliceData 저장 함수
+    /// </summary>
+    /// <param name="sprite"></param>
+    /// <param name="data"></param>
+    /// <param name="reimport"></param>
     public static void Save(
     Sprite sprite,
     AdvancedSliceData data,
@@ -24,6 +29,11 @@ public static class AdvancedSliceImporterUtil
         if(reimport) importer.SaveAndReimport();
     }
     
+    /// <summary>
+    /// SliceData 로드 함수
+    /// </summary>
+    /// <param name="sprite"></param>
+    /// <returns></returns>
     public static AdvancedSliceData LoadOrCreateDefault(Sprite sprite)
     {
         if (TryLoad(sprite, out AdvancedSliceData data))
@@ -31,21 +41,8 @@ public static class AdvancedSliceImporterUtil
 
         return GenerateDefault(sprite);
     }
-
-    private static AdvancedSliceData GenerateDefault(Sprite sprite)
-    {
-        if(sprite == null) return default;
-        
-        Rect rect =  sprite.rect;
-        
-        return AdvancedSliceData.GenerateDefault(rect.width, rect.height);
-    }
     
-    public static bool HasData(Sprite sprite)
-    {
-        return TryLoad(sprite, out _);
-    }
-
+    // 로드를 시도
     public static bool TryLoad(
     Sprite sprite,
     out AdvancedSliceData data)
@@ -66,6 +63,16 @@ public static class AdvancedSliceImporterUtil
         
         data = JsonUtility.FromJson<AdvancedSliceData>(json);
         return true;
+    }
+    
+    // 로드 실패시 디폴트 슬라이스 데이터 생성
+    public static AdvancedSliceData GenerateDefault(Sprite sprite)
+    {
+        if(sprite == null) return default;
+        
+        Rect rect =  sprite.rect;
+        
+        return AdvancedSliceData.GenerateDefault(rect.width, rect.height);
     }
     
     // 스프라이트 위치 경로로 접근해 텍스쳐임포터를 가져오는 함수

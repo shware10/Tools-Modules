@@ -1,12 +1,33 @@
 using UnityEngine;
 using UnityEngine.UI;
-
+public enum AdvancedSliceMode
+{
+    OneByThree,
+    ThreeByOne,
+    
+    OneByFive,
+    FiveByOne,
+    
+    ThreeByThree,
+    
+    ThreeByFive,
+    FiveByThree,
+    
+    FiveByFive
+}
+    
+public enum AdvancedFillMode
+{
+    None,
+    Horizontal,
+    Vertical
+}
 /// <summary>
-/// Unity 기본 9-Slice를 확장한 5x5 Slice Image.
+/// Unity 기본 9-Slice를 확장한 최대 5x5 Slice Image.
 /// 
 /// 구조
 /// Border | Stretch | Center | Stretch | Border
-/// 중앙 영역(Center)과 Border의 크기가 유지되고
+/// 중앙 영역과 Border의 크기가 유지되고
 /// Stretch 영역만 남은 공간을 차지합니다.
 /// 
 /// Slice 정보는 Sprite의
@@ -15,21 +36,29 @@ using UnityEngine.UI;
 [AddComponentMenu("UI/Advanced Slice Image")]
 public class AdvancedSliceImage : Image
 {
-    public enum AdvancedSliceMode
-    {
-        FiveByFive,
-        FiveByThree,
-        ThreeByFive
-    }
-
+    private Sprite activeSprite => overrideSprite != null ? overrideSprite : sprite;
+    
     // Sprite에 저장된 Slice 정보를 캐시
     [SerializeField] private AdvancedSliceData _sliceData;
     [SerializeField] private AdvancedSliceMode _sliceMode = AdvancedSliceMode.FiveByFive;
+    public AdvancedSliceMode SliceMode => _sliceMode;
     
-    private Sprite activeSprite =>
-        overrideSprite != null ?
-        overrideSprite : sprite;
-            
+    [SerializeField] private AdvancedFillMode _fillMode;
+    [SerializeField]
+    [Range(0f, 1f)]
+    private float _fillAmount = 1f;
+    
+    public float FillAmount
+    {
+        get => _fillAmount;
+        set
+        {
+            value = Mathf.Clamp01(value);
+            if(Mathf.Approximately(_fillAmount, value)) return;
+            _fillAmount = value;
+            SetVerticesDirty();
+        }
+    }
     
     #if UNITY_EDITOR
     protected override void OnValidate()
@@ -72,10 +101,8 @@ public class AdvancedSliceImage : Image
     }
     
     /// <summary>
-    /// 5x5 Grid 생성.
-    ///
-    /// 36개의 Vertex를 생성한 후
-    /// 25개의 Quad가 이를 공유합니다.
+    /// Advanced Grid 생성
+    /// 선택된 모드에 따른 Vertex를 생성한 후 쿼드를 그립니다
     /// </summary>
     private void GenerateAdvancedSliceMesh(VertexHelper vh)
     {
@@ -90,45 +117,32 @@ public class AdvancedSliceImage : Image
         float sourceHeight  = textureRect.height;
         
         // 원본 스프라이트 내부 경계 지점 생성
-        float[] sourceX = BuildSourceX(sourceWidth);
-        float[] sourceY = BuildSourceY(sourceHeight);
-        
+        float[] sourceX = BuildSourceXAxis(sourceWidth);
+        float[] sourceY = BuildSourceYAxis(sourceHeight);
         
         // 스프라이트의 좌료를 실제 RectTransform 크기에 맞는 좌표로 변환
-        float[] pointsX = BuildAxisPoints(
-        rect.xMin,
-        rect.xMax,
-        sourceX
-        );
-        
-        float[] pointsY = BuildAxisPoints(
-        rect.yMin,
-        rect.yMax,
-        sourceY
-        );
+        float[] pointsX = BuildRectAxisPoints(rect.xMin, rect.xMax, sourceX);
+        float[] pointsY = BuildRectAxisPoints(rect.yMin, rect.yMax, sourceY);
         
         // vertex, uv 생성
-        Vector2[,] vertices =
-            BuildVertex(
-                pointsX,
-                pointsY);
-        
-        Vector2[,] uvs = BuildUV(
-        textureRect,
-        activeSprite.texture,
-        sourceX,
-        sourceY
-        );
+        Vector2[,] vertices = BuildVertex(pointsX, pointsY);
+        Vector2[,] uvs = BuildUV(textureRect, activeSprite.texture, sourceX, sourceY);
         
         //메쉬 생성        
-        GenerateMesh(vh, vertices, uvs);
+        GenerateMesh(vh, vertices, uvs, pointsX, pointsY);
     }
     
-    private float[] BuildSourceX(float sourceWidth)
+    private float[] BuildSourceXAxis(float sourceWidth)
     {
         switch(_sliceMode)
         {
-            case AdvancedSliceMode.ThreeByFive :
+            case AdvancedSliceMode.OneByThree   :
+            case AdvancedSliceMode.OneByFive    :
+                return new[] { 0f, sourceWidth };
+                
+            case AdvancedSliceMode.ThreeByOne   :
+            case AdvancedSliceMode.ThreeByThree :
+            case AdvancedSliceMode.ThreeByFive  :
                 return new[]
                 {
                     0f,
@@ -136,6 +150,10 @@ public class AdvancedSliceImage : Image
                     _sliceData.Right,
                     sourceWidth
                 };
+            
+            case AdvancedSliceMode.FiveByOne    :
+            case AdvancedSliceMode.FiveByThree  :
+            case AdvancedSliceMode.FiveByFive   :
             default:
                 return new[]
                 {
@@ -149,11 +167,18 @@ public class AdvancedSliceImage : Image
         }
     }
     
-    private float[] BuildSourceY(float sourceHeight)
+    private float[] BuildSourceYAxis(float sourceHeight)
     {
         switch(_sliceMode)
         {
-            case AdvancedSliceMode.FiveByThree :
+            
+            case AdvancedSliceMode.ThreeByOne   :
+            case AdvancedSliceMode.FiveByOne    :
+                return new[] {0f, sourceHeight};
+            
+            case AdvancedSliceMode.OneByThree   :
+            case AdvancedSliceMode.ThreeByThree :
+            case AdvancedSliceMode.FiveByThree  :
                 return new[]
                 {
                     0f,
@@ -161,6 +186,10 @@ public class AdvancedSliceImage : Image
                     _sliceData.Top,
                     sourceHeight
                 };
+            
+            case AdvancedSliceMode.OneByFive    :
+            case AdvancedSliceMode.ThreeByFive  :
+            case AdvancedSliceMode.FiveByFive   :
             default:
                 return new[]
                 {
@@ -174,34 +203,71 @@ public class AdvancedSliceImage : Image
         }
     }
     
-    private static float[] BuildAxisPoints(
-    float start,
-    float end,
-    float[] source
-    )
+    private float[] BuildRectAxisPoints(float start, float end, float[] source)
     {
-        if(source.Length == 6)
+        switch(source.Length)
         {
-            return BuildFiveAxisPoints(start, end, source);
+            case 2:
+                return new[]
+                {
+                    start,
+                    end
+                };
+
+            case 4:
+                return BuildThreeAxisPoints(
+                    start,
+                    end,
+                    source);
+
+            case 6:
+                return BuildFiveAxisPoints(
+                    start,
+                    end,
+                    source);
+            default: 
+                throw new System.ArgumentException(
+                    $"Unsupported axis count : {source.Length}");
+        }
+    }
+    
+    private float[] BuildThreeAxisPoints(float start, float end, float[] source)
+    {
+        float totalLength = end - start;
+        
+        float fixedA  = source[1] - source[0];
+        float fixedB  = source[3] - source[2];
+        
+        float fixedTotal = fixedA + fixedB;
+        
+        float fixedScale = 1f;
+        
+        if(fixedTotal > totalLength && fixedTotal > 0f)
+        {
+            fixedScale = totalLength / fixedTotal;
         }
         
-        if(source.Length == 4)
-        {
-            return BuildThreeAxisPoints(start, end, source);
-        }        
+        fixedA *= fixedScale;
+        fixedB *= fixedScale;
         
-        return null;
+        float ScaledFixedTotal = fixedA + fixedB;
+        float remaining = Mathf.Max(0f, totalLength - ScaledFixedTotal);
+        
+        float[] points = new float[4];
+        
+        points[0] = start;
+        points[1] = points[0] + fixedA;
+        points[2] = points[1] + remaining;
+        points[3] = end;
+        
+        return points;
     }
     
     /// <summary>
     /// Sprite 축의 내부 5개의 좌표들을
     /// 실제 RectTransform 좌표들로 변환합니다.
     /// </summary>
-    private static float[] BuildFiveAxisPoints(
-    float start,
-    float end,
-    float[] source
-    )
+    private float[] BuildFiveAxisPoints(float start, float end, float[] source)
     {
         // 현재 RectTrasnform의 총 길이
         float totalLength = end - start;
@@ -235,7 +301,7 @@ public class AdvancedSliceImage : Image
         center *= fixedScale;
         
         float scaledFixedTotal = fixedA + center + fixedB;
-        //부동 소수점 오차 방지 예외처리한 고정 범위를 제외한 범위
+        // 고정 범위를 제외한 영역
         float remaining = Mathf.Max(0f, totalLength - scaledFixedTotal);
         
         if(stretchTotal > 0f)
@@ -263,44 +329,7 @@ public class AdvancedSliceImage : Image
         return points;
     }
     
-    private static float[] BuildThreeAxisPoints(
-    float start,
-    float end,
-    float[] source
-    )
-    {
-        float totalLength = end - start;
-        
-        float fixedA  = source[1] - source[0];
-        float stretch = source[2] - source[1];
-        float fixedB  = source[3] - source[2];
-        
-        float fixedTotal = fixedA + fixedB;
-        
-        float fixedScale = 1f;
-        
-        if(fixedTotal > totalLength && fixedTotal > 0f)
-        {
-            fixedScale = totalLength / fixedTotal;
-        }
-        
-        fixedA *= fixedScale;
-        fixedB *= fixedScale;
-        
-        float ScaledFixedTotal = fixedA + fixedB;
-        float remaining = Mathf.Max(0f, totalLength - ScaledFixedTotal);
-        
-        float[] points = new float[4];
-        
-        points[0] = start;
-        points[1] = points[0] + fixedA;
-        points[2] = points[1] + remaining;
-        points[3] = end;
-        
-        return points;
-    }
-    
-    
+
     
     /// <summary>
     /// x,y좌표로 생성되는 교차점을 Vertex로 변환하는 함수
@@ -308,10 +337,7 @@ public class AdvancedSliceImage : Image
     /// <param name="pointsX"></param>
     /// <param name="pointsY"></param>
     /// <returns></returns>
-    private static Vector2[,] BuildVertex(
-    float[] pointsX,
-    float[] pointsY
-    )
+    private Vector2[,] BuildVertex(float[] pointsX, float[] pointsY)
     {
         Vector2[,] grid = new Vector2[pointsX.Length,pointsY.Length];
         
@@ -335,7 +361,7 @@ public class AdvancedSliceImage : Image
     /// <param name="sourceX"></param>
     /// <param name="sourceY"></param>
     /// <returns></returns>
-    private static Vector2[,] BuildUV(
+    private Vector2[,] BuildUV(
     Rect textureRect,
     Texture texture,
     float[] sourceX,
@@ -348,7 +374,7 @@ public class AdvancedSliceImage : Image
         {
             for(int y = 0; y < sourceY.Length; ++y)
             {
-                // 교차점들을 uv(0-1)에 맵핑
+                // atlas 대응을 위해 textureRect + source의 0-1 정규화 위치로 교차점들을 uv에 맵핑
                 uvs[x, y] = new Vector2(
                 (textureRect.x + sourceX[x]) / texture.width, 
                 (textureRect.y + sourceY[y]) / texture.height  
@@ -359,7 +385,6 @@ public class AdvancedSliceImage : Image
         return uvs;
     }
     
-    
     /// <summary>
     /// vertex와 uv정보를 바탕으로 UGUI용 Mesh를 생성
     /// </summary>
@@ -369,38 +394,95 @@ public class AdvancedSliceImage : Image
     private void GenerateMesh(
     VertexHelper vh,
     Vector2[,] vertices,
-    Vector2[,] uvs
+    Vector2[,] uvs,
+    float[] pointsX,
+    float[] pointsY
     )
     {
+        if(_fillAmount <= 0f) return;
+
         Color32 color32 = this.color;
         
         int xCount = vertices.GetLength(0);
         int yCount = vertices.GetLength(1);
         
-        // vertex생성 UI는 vertexhelper를 써서 메쉬를 생성합
-        for(int y = 0; y < yCount; ++y)
-        {
-            for(int x = 0; x < xCount; ++x)
-            {
-                vh.AddVert(vertices[x, y], color32, uvs[x, y]);
-            }
-        }
+        float fillX = Mathf.Lerp(
+            pointsX[0],
+            pointsX[pointsX.Length - 1],
+            _fillAmount);
+
+        float fillY = Mathf.Lerp(
+            pointsY[0],
+            pointsY[pointsY.Length - 1],
+            _fillAmount);
         
         for(int y = 0; y < yCount - 1; ++y)
         {
             for(int x = 0; x < xCount - 1; ++x)
             {
-                // 쿼드 별 인덱스 계산
-                int bottomLeft  = y * xCount + x;
-                int topLeft     = bottomLeft + xCount;
-                int topRight    = topLeft + 1;
-                int bottomRight = bottomLeft + 1;
+                Vector2 bl = vertices[x, y];
+                Vector2 tl = vertices[x, y+1];
+                Vector2 tr = vertices[x+1, y+1];
+                Vector2 br = vertices[x+1, y];
                 
-                //삼각형을 생성
-                vh.AddTriangle(bottomLeft, topLeft, topRight);
-                vh.AddTriangle(topRight, bottomLeft, bottomRight);
+                Vector2 uvBL = uvs[x, y];
+                Vector2 uvTL = uvs[x, y+1];
+                Vector2 uvTR = uvs[x+1, y+1];
+                Vector2 uvBR = uvs[x+1, y];
+                
+                if(_fillMode == AdvancedFillMode.Horizontal)
+                {
+                    if(bl.x >= fillX) continue;
+                    
+                    if(br.x > fillX)
+                    {
+                        float t = Mathf.InverseLerp(
+                            bl.x,
+                            br.x,
+                            fillX);
+                        
+                        br.x = fillX;
+                        tr.x = fillX;
+                        
+                        uvBR = Vector2.Lerp(uvBL, uvBR, t);
+                        uvTR = Vector2.Lerp(uvTL, uvTR, t);
+                    }
+                }
+                else if(_fillMode == AdvancedFillMode.Vertical)
+                {
+                    if(bl.y >= fillY) continue;
+                    
+                    if(tl.y > fillY)
+                    {
+                        float t = Mathf.InverseLerp(bl.y, tl.y, fillY);
+                        
+                        tl.y = fillY;
+                        tr.y = fillY;
+                        
+                        uvTL = Vector2.Lerp(uvBL, uvTL, t);
+                        uvTR = Vector2.Lerp(uvBR, uvTR, t);
+                    }
+                }
+                
+                AddQuad(vh, bl, tl, tr, br, uvBL, uvTL, uvTR, uvBR, color32);
             }
         }
     }
     
+    private void AddQuad(
+    VertexHelper vh,
+    Vector2 bl,     Vector2 tl,     Vector2 tr,     Vector2 br,
+    Vector2 uvBL,   Vector2 uvTL,   Vector2 uvTR,   Vector2 uvBR,
+    Color32 color)
+    {
+        int startIndex = vh.currentVertCount;
+        
+        vh.AddVert(bl, color, uvBL);
+        vh.AddVert(tl, color, uvTL);
+        vh.AddVert(tr, color, uvTR);
+        vh.AddVert(br, color, uvBR);
+        
+        vh.AddTriangle(startIndex, startIndex + 1, startIndex + 2);
+        vh.AddTriangle(startIndex + 2, startIndex + 3, startIndex);
+    }
 }

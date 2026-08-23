@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 68b29086a72e81941971533e23045947
+guid: fca253dc592ce444c9044a4eaafcbb21
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -49,7 +49,7 @@ TextureImporter:
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
   spritePixelsToUnits: 100
-  spriteBorder: {x: 37, y: 32, z: 36, w: 32}
+  spriteBorder: {x: 11, y: 11, z: 11, w: 11}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
@@ -72,7 +72,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -112,6 +112,6 @@ TextureImporter:
     nameFileIdTable: {}
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
-  userData: ADVANCED_SLICE:{"Left":37.0,"LeftInner":44.0,"RightInner":85.0,"Right":92.0,"Bottom":30.0,"BottomInner":31.0,"TopInner":33.0,"Top":34.0}
+  userData: ADVANCED_SLICE:{"Left":11.0,"LeftInner":15.0,"RightInner":17.0,"Right":21.0,"Bottom":12.0,"BottomInner":15.0,"TopInner":17.0,"Top":20.0}
   assetBundleName: 
   assetBundleVariant: 
